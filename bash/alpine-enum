@@ -1,0 +1,103 @@
+#!/bin/ash
+
+# Define output directory and file
+OUTPUT_DIR="/wrccdc/enumeration/alpine_enum"
+OUTPUT_FILE="$OUTPUT_DIR/$(hostname)-consolidated-output.txt"
+
+# Ensure output directory exists
+mkdir -p "$OUTPUT_DIR"
+
+# Function to append output to file
+append_to_file() {
+    local content=$1
+    echo -e "$content" >> "$OUTPUT_FILE"
+}
+
+# Get list of active services running
+services_run=$(sudo rc-status)
+append_to_file "Active Services:\n$services_run\n------------------------------------------\n"
+
+# Check if netstat is installed
+if command -v netstat &> /dev/null; then
+    ports_all=$(netstat -tulnp)
+    connections=$(netstat -antupx)
+    append_to_file "Listening ports:\n$ports_all\n------------------------------------------\nConnections, addresses/ports, tcp, udp, pid, and unix domain sockets:\n$connections\n------------------------------------------\n"
+else
+    append_to_file "netstat not installed\n------------------------------------------\n"
+fi
+
+# Get distro and version
+distro_version=$(cat /etc/*-release)
+append_to_file "Versions and distro:\n$distro_version\n------------------------------------------\n"
+
+# Get kernel version
+kernel_version=$(cat /proc/version)
+append_to_file "Kernel version:\n$kernel_version\n------------------------------------------\n"
+
+# Get running processes
+processes=$(ps aux)
+root_processes=$(ps aux | grep root)
+append_to_file "All processes:\n$processes\n------------------------------------------\nRoot processes:\n$root_processes\n------------------------------------------\n"
+
+# Get installed apps/packages, versions, and if they are running
+alpine_packages=$(apk info)
+append_to_file "Installed packages:\n$alpine_packages\n------------------------------------------\n"
+
+# Get cron jobs
+cron_jobs_individual=$(cat /etc/cron.d/* 2>/dev/null)
+daily_cron_jobs=$(cat /etc/cron.daily/* 2>/dev/null)
+hourly_cron_jobs=$(cat /etc/cron.hourly/* 2>/dev/null)
+weekly_cron_jobs=$(cat /etc/cron.weekly/* 2>/dev/null)
+monthly_cron_jobs=$(cat /etc/cron.monthly/* 2>/dev/null)
+system_cron_jobs=$(cat /etc/crontab 2>/dev/null)
+anacron_jobs=$(cat /etc/anacrontab 2>/dev/null)
+append_to_file "Individual cron jobs:\n$cron_jobs_individual\n------------------------------------------\nDaily cron jobs:\n$daily_cron_jobs\n------------------------------------------\nHourly cron jobs:\n$hourly_cron_jobs\n------------------------------------------\nWeekly cron jobs:\n$weekly_cron_jobs\n------------------------------------------\nMonthly cron jobs:\n$monthly_cron_jobs\n------------------------------------------\nSystem wide cron jobs:\n$system_cron_jobs\n------------------------------------------\nAnacron jobs:\n$anacron_jobs\n------------------------------------------\n"
+
+# Get network interfaces
+ifconfig_interfaces=$(ifconfig -a)
+append_to_file "Active interfaces:\n$ifconfig_interfaces\n------------------------------------------\n"
+
+if command -v ip &> /dev/null; then
+    connected_interfaces=$(ip link)
+    append_to_file "Connected interfaces:\n$connected_interfaces\n------------------------------------------\n"
+fi
+
+# Get network interface configuration
+alpine_interfaces=$(cat /etc/network/interfaces 2>/dev/null)
+append_to_file "Network interface configuration:\n$alpine_interfaces\n------------------------------------------\n"
+
+# Get files and processes related to internet/network connections
+network_files_processes=$(lsof -i)
+port_80_files_processes=$(lsof -i :80)
+append_to_file "Files + processes related to internet/network connections:\n$network_files_processes\n------------------------------------------\nFiles + processes but only port 80:\n$port_80_files_processes\n------------------------------------------\n"
+
+# Get user login history and currently logged in users
+login_history=$(last)
+append_to_file "User login history:\n$login_history\n------------------------------------------\n"
+
+# Get sudoers file
+sudoers=$(cat /etc/sudoers)
+append_to_file "Sudoers file/permissions:\n$sudoers\n------------------------------------------\n"
+
+# Get files and directories in /root/
+root_files=$(ls -ahlR /root/)
+append_to_file "Files and directories/subdirectories in /root/ dir:\n$root_files\n------------------------------------------\n"
+
+# Get ash history
+ash_history=$(cat ~/.ash_history 2>/dev/null)
+append_to_file "Ash history:\n$ash_history\n------------------------------------------\n"
+
+# Get SSH keys
+ssh_keys=$(cat ~/.ssh/* 2>/dev/null)
+append_to_file "SSH keys:\n$ssh_keys\n------------------------------------------\n"
+
+# Get mounted filesystems and disk space usage
+mounted_filesystems=$(mount)
+disk_space=$(df -h)
+unmounted_filesystems=$(cat /etc/fstab)
+append_to_file "Mounted filesystems:\n$mounted_filesystems\n------------------------------------------\nDisk space usage:\n$disk_space\n------------------------------------------\nUnmounted filesystems:\n$unmounted_filesystems\n------------------------------------------\n"
+
+# Get world writable folders and files
+world_writable_folders=$(find / -xdev -type d -perm -0002 -ls 2>/dev/null)
+world_writable_files=$(find / -xdev -type f -perm -0002 -ls 2>/dev/null)
+append_to_file "World writable folders:\n$world_writable_folders\n------------------------------------------\nWorld writable files:\n$world_writable_files\n------------------------------------------\n"
