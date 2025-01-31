@@ -1,0 +1,238 @@
+#!/bin/bash
+
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Function to run a command and capture its output
+run_command() {
+    local cmd="$1"
+    local output
+    output=$(eval "$cmd" 2>/dev/null)
+    echo "$output"
+}
+
+# Initialize combined output
+combined_output=""
+
+# Get list of active services running
+if command_exists systemctl; then
+    combined_output+="Active Services:\n"
+    combined_output+="$(run_command 'systemctl list-units --type=service --state=running')\n"
+    combined_output+="------------------------------------------\n"
+fi
+
+# Get list of all services
+if command_exists systemctl; then
+    combined_output+="All Services:\n"
+    combined_output+="$(run_command 'systemctl list-units --type=service')\n"
+    combined_output+="------------------------------------------\n"
+fi
+
+# Check if netstat is installed
+if command_exists netstat; then
+    netstat_installed=true
+else
+    netstat_installed=false
+fi
+
+# Get tcp, udp, pid, addy + port for listening ports
+if $netstat_installed; then
+    combined_output+="Listening ports (netstat):\n"
+    combined_output+="$(run_command 'netstat -tulnp')\n"
+else
+    combined_output+="Listening ports (ss):\n"
+    combined_output+="$(run_command 'ss -tuln')\n"
+fi
+combined_output+="------------------------------------------\n"
+
+# Get connections, addresses/ports, tcp, udp, pid, and unix domain sockets
+if $netstat_installed; then
+    combined_output+="Connections, addresses/ports, tcp, udp, pid, and unix domain sockets:\n"
+    combined_output+="$(run_command 'netstat -antupx')\n"
+    combined_output+="------------------------------------------\n"
+fi
+
+# Get distro and version
+combined_output+="Versions and distro:\n"
+combined_output+="$(run_command 'cat /etc/*-release')\n"
+combined_output+="------------------------------------------\n"
+
+# Get kernel version
+combined_output+="Kernel version:\n"
+combined_output+="$(run_command 'cat /proc/version')\n"
+combined_output+="------------------------------------------\n"
+
+# Get running processes
+combined_output+="All processes:\n"
+combined_output+="$(run_command 'ps aux')\n"
+combined_output+="------------------------------------------\n"
+
+# Get root processes
+combined_output+="Root processes:\n"
+combined_output+="$(run_command 'ps aux | grep root')\n"
+combined_output+="------------------------------------------\n"
+
+# Get installed apps/packages, versions, and if they are running
+if [ -f /etc/debian_version ]; then
+    combined_output+="Installed packages (Debian):\n"
+    combined_output+="$(run_command 'dpkg -l')\n"
+elif [ -f /etc/redhat-release ]; then
+    combined_output+="Installed packages (RedHat):\n"
+    combined_output+="$(run_command 'rpm -qa')\n"
+elif [ -f /etc/arch-release ]; then
+    combined_output+="Installed packages (Arch):\n"
+    combined_output+="$(run_command 'pacman -Q')\n"
+fi
+combined_output+="------------------------------------------\n"
+
+# Get individual cron jobs
+combined_output+="Individual cron jobs:\n"
+combined_output+="$(run_command 'cat /etc/cron.d/*')\n"
+combined_output+="------------------------------------------\n"
+
+# Get daily cron jobs
+combined_output+="Daily cron jobs:\n"
+combined_output+="$(run_command 'cat /etc/cron.daily/*')\n"
+combined_output+="------------------------------------------\n"
+
+# Get hourly cron jobs
+combined_output+="Hourly cron jobs:\n"
+combined_output+="$(run_command 'cat /etc/cron.hourly/*')\n"
+combined_output+="------------------------------------------\n"
+
+# Get weekly cron jobs
+combined_output+="Weekly cron jobs:\n"
+combined_output+="$(run_command 'cat /etc/cron.weekly/*')\n"
+combined_output+="------------------------------------------\n"
+
+# Get monthly cron jobs
+combined_output+="Monthly cron jobs:\n"
+combined_output+="$(run_command 'cat /etc/cron.monthly/*')\n"
+combined_output+="------------------------------------------\n"
+
+# Get system wide cron jobs
+combined_output+="System wide cron jobs:\n"
+combined_output+="$(run_command 'cat /etc/crontab')\n"
+combined_output+="------------------------------------------\n"
+
+# Get anacron jobs
+combined_output+="Anacron jobs:\n"
+combined_output+="$(run_command 'cat /etc/anacrontab')\n"
+combined_output+="------------------------------------------\n"
+
+# Check if ifconfig is installed
+if command_exists ifconfig; then
+    ifconfig_installed=true
+else
+    ifconfig_installed=false
+fi
+
+# Get active interfaces (including inactive/down), IP address, MAC, netmask, broadcast, and more
+if $ifconfig_installed; then
+    combined_output+="Network interfaces (ifconfig):\n"
+    combined_output+="$(run_command 'ifconfig -a')\n"
+else
+    combined_output+="Network interfaces (ip):\n"
+    combined_output+="$(run_command 'ip a')\n"
+fi
+combined_output+="------------------------------------------\n"
+
+# Get links/network interfaces
+combined_output+="Links/network interfaces:\n"
+combined_output+="$(run_command 'ip link')\n"
+combined_output+="------------------------------------------\n"
+
+# Get network interface configuration
+if [ -f /etc/network/interfaces ]; then
+    combined_output+="Network interface configuration (Debian):\n"
+    combined_output+="$(run_command 'cat /etc/network/interfaces')\n"
+elif [ -d /etc/netplan ]; then
+    combined_output+="Network interface configuration (Ubuntu 20.04+):\n"
+    combined_output+="$(run_command 'cat /etc/netplan/*')\n"
+elif [ -f /etc/sysconfig/network ]; then
+    combined_output+="Network interface configuration (RedHat):\n"
+    combined_output+="$(run_command 'cat /etc/sysconfig/network')\n"
+elif [ -d /etc/systemd/network ]; then
+    combined_output+="Network interface configuration (Arch):\n"
+    combined_output+="$(run_command 'cat /etc/systemd/network/*')\n"
+fi
+combined_output+="------------------------------------------\n"
+
+# Get files + processes related to internet/network connections
+combined_output+="Files + processes related to internet/network connections:\n"
+combined_output+="$(run_command 'lsof -i')\n"
+combined_output+="------------------------------------------\n"
+
+# Get files + processes but only port 80
+combined_output+="Files + processes but only port 80:\n"
+combined_output+="$(run_command 'lsof -i :80')\n"
+combined_output+="------------------------------------------\n"
+
+# Get user login history
+combined_output+="User login history:\n"
+combined_output+="$(run_command 'last')\n"
+combined_output+="------------------------------------------\n"
+
+# Get users currently logged in
+combined_output+="Users currently logged in:\n"
+combined_output+="$(run_command 'w')\n"
+combined_output+="------------------------------------------\n"
+
+# Get sudoers file/permissions
+combined_output+="Sudoers file/permissions:\n"
+combined_output+="$(run_command 'cat /etc/sudoers')\n"
+combined_output+="------------------------------------------\n"
+
+# Get files and directories/subdirectories in /root/ dir
+combined_output+="Files and directories/subdirectories in /root/ dir:\n"
+combined_output+="$(run_command 'ls -ahlR /root/')\n"
+combined_output+="------------------------------------------\n"
+
+# Get bash history
+combined_output+="Bash history:\n"
+combined_output+="$(run_command 'cat ~/.bash_history')\n"
+combined_output+="------------------------------------------\n"
+
+# Get zsh history
+combined_output+="Zsh history:\n"
+combined_output+="$(run_command 'cat ~/.zsh_history')\n"
+combined_output+="------------------------------------------\n"
+
+# Get ssh keys
+combined_output+="SSH keys:\n"
+combined_output+="$(run_command 'cat ~/.ssh/*')\n"
+combined_output+="------------------------------------------\n"
+
+# Get mounted filesystems
+combined_output+="Mounted filesystems:\n"
+combined_output+="$(run_command 'mount')\n"
+combined_output+="------------------------------------------\n"
+
+# Get disk space usage for mounted filesystems
+combined_output+="Disk space usage for mounted filesystems:\n"
+combined_output+="$(run_command 'df -h')\n"
+combined_output+="------------------------------------------\n"
+
+# Detect unmounted file-systems
+combined_output+="Detect unmounted file-systems:\n"
+combined_output+="$(run_command 'cat /etc/fstab')\n"
+combined_output+="------------------------------------------\n"
+
+# Get world writable folders
+combined_output+="World writable folders:\n"
+combined_output+="$(run_command 'find / -xdev -type d -perm -0002 -ls 2>/dev/null')\n"
+combined_output+="------------------------------------------\n"
+
+# Get world writable files
+combined_output+="World writable files:\n"
+combined_output+="$(run_command 'find / -xdev -type f -perm -0002 -ls 2>/dev/null')\n"
+combined_output+="------------------------------------------\n"
+
+# Write combined output to file
+output_file="/Users/brodywhelan/Desktop/scripts/ccdc-linux/enumeration/linux_enum/$(hostname)-combined-output.txt"
+echo -e "$combined_output" > "$output_file"
+chmod 0777 "$output_file"
+
+echo "Combined output written to $output_file"
